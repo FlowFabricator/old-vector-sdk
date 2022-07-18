@@ -60,11 +60,13 @@ func Call(pluginName, action string, roles []string, args plugins.Args) (states.
 
 	sdkClient := sdkpb.NewSDKClient(conn)
 	resp, err := sdkClient.Call(context.Background(), &sdkpb.CallRequest{
-		Plugin:        pluginName,
-		PluginVersion: "v0.1.0",
-		Action:        action,
-		Roles:         roles,
-		ArgsMapAsJson: argsAsJson,
+		RunRequest: &sdkpb.RunRequest{
+			Plugin:        pluginName,
+			PluginVersion: "v0.1.0",
+			Action:        action,
+			ArgsMapAsJson: argsAsJson,
+		},
+		Roles: roles,
 	})
 
 	if err != nil {
