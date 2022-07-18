@@ -23,6 +23,8 @@ message RunResponse {
 message CallRequest {
   RunRequest runRequest = 1;
   repeated string roles = 2;
+  string stateName = 3;
+  string executionId = 4;
 }
 
 message CallResponse {

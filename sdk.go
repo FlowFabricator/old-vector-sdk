@@ -66,7 +66,9 @@ func Call(pluginName, action string, roles []string, args plugins.Args) (states.
 			Action:        action,
 			ArgsMapAsJson: argsAsJson,
 		},
-		Roles: roles,
+		Roles:       roles,
+		StateName:   envVars["STATE_NAME"],
+		ExecutionId: envVars["EXEC_ID"],
 	})
 
 	if err != nil {
