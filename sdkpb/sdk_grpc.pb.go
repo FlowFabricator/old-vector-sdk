@@ -97,5 +97,5 @@ var SDK_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "pb/sdkpb/sdk.proto",
+	Metadata: "sdkpb/sdk.proto",
 }

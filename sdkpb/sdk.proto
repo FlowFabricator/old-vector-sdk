@@ -1,6 +1,6 @@
 syntax = "proto3";
 package sdkpb;
-option go_package = "/pb/sdkpb";
+option go_package = "/sdkpb";
 
 service SDK {
   rpc Call(CallRequest) returns (CallResponse);
@@ -10,7 +10,8 @@ message CallRequest {
   string plugin = 1;
   string pluginVersion = 2;
   string action = 3;
-  bytes argsMapAsJson = 4;
+  repeated string roles = 4;
+  bytes argsMapAsJson = 5;
 }
 
 message CallResponse {
