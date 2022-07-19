@@ -3,7 +3,9 @@ package vsdk
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
@@ -35,7 +37,7 @@ func Call(pluginName, action string, roles []string, args plugins.Args) (states.
 	if err != nil {
 		return states.ActionOutput{}, err
 	}
-	tlsConf, err := decodeTLSConf(envVars["API_TLS_CONF"])
+	tlsConf, err := decodeTLSConf(envVars["API_TLS_CA"], envVars["API_TLS_CERT"])
 	if err != nil {
 		return states.ActionOutput{}, fmt.Errorf("failed to decode TLS config: %v", err)
 	}
@@ -82,7 +84,7 @@ func Call(pluginName, action string, roles []string, args plugins.Args) (states.
 }
 
 func getEnvVars() (map[string]string, error) {
-	varNames := []string{"STATE_NAME", "EXEC_ID", "API_SERVER_URL", "API_TOKEN", "API_TLS_CONF"}
+	varNames := []string{"STATE_NAME", "EXEC_ID", "API_SERVER_URL", "API_TOKEN", "API_TLS_CA", "API_TLS_CERT"}
 	envVars := make(map[string]string)
 	for _, varName := range varNames {
 		value, found := os.LookupEnv(varName)
@@ -94,11 +96,28 @@ func getEnvVars() (map[string]string, error) {
 	return envVars, nil
 }
 
-func decodeTLSConf(encodedTlsConf string) (*tls.Config, error) {
-	conf := &tls.Config{}
-	dec := gob.NewDecoder(bytes.NewReader([]byte(encodedTlsConf)))
-	if err := dec.Decode(conf); err != nil {
+func decodeTLSConf(encodedCa, encodedClientCert string) (*tls.Config, error) {
+	gob.Register(ed25519.PublicKey{})
+	gob.Register(ed25519.PrivateKey{})
+
+	rootCa := &x509.Certificate{}
+	dec := gob.NewDecoder(bytes.NewReader([]byte(encodedCa)))
+	if err := dec.Decode(rootCa); err != nil {
 		return nil, err
 	}
-	return conf, nil
+
+	clientCert := tls.Certificate{}
+	dec = gob.NewDecoder(bytes.NewReader([]byte(encodedClientCert)))
+	if err := dec.Decode(&clientCert); err != nil {
+		return nil, err
+	}
+
+	rootCAPool := x509.NewCertPool()
+	rootCAPool.AddCert(rootCa)
+	return &tls.Config{
+		RootCAs: rootCAPool,
+		Certificates: []tls.Certificate{
+			clientCert,
+		},
+	}, nil
 }
