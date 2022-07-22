@@ -100,7 +100,10 @@ func getEnvVars() (map[string]string, error) {
 	for _, varName := range varNames {
 		value, found := os.LookupEnv(varName)
 		if !found {
-			return nil, fmt.Errorf("%s environment variable not set", varName)
+			if varName == "API_TLS_CA" || varName == "API_TLS_CERT" {
+				return nil, fmt.Errorf("%s environment variable not set", varName)
+			}
+			continue
 		}
 		data, err := base64.StdEncoding.DecodeString(value)
 		if err != nil {
