@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
@@ -91,7 +92,11 @@ func getEnvVars() (map[string]string, error) {
 		if !found {
 			return nil, fmt.Errorf("%s environment variable not set", varName)
 		}
-		envVars[varName] = value
+		data, err := base64.StdEncoding.DecodeString(value)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode base64 environment variable '%s': %v", varName, err)
+		}
+		envVars[varName] = string(data)
 	}
 	return envVars, nil
 }
