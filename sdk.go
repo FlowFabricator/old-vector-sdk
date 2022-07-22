@@ -15,6 +15,7 @@ import (
 	"github.com/FlowFabricator/vector-sdk/sdkpb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"os"
 	"time"
 )
@@ -38,22 +39,31 @@ func Call(pluginName, action string, roles []string, args plugins.Args) (states.
 	if err != nil {
 		return states.ActionOutput{}, err
 	}
-	tlsConf, err := decodeTLSConf(envVars["API_TLS_CA"], envVars["API_TLS_CERT"])
-	if err != nil {
-		return states.ActionOutput{}, fmt.Errorf("failed to decode TLS config: %v", err)
-	}
 
-	dialOpts := []grpc.DialOption{
-		grpc.WithTransportCredentials(credentials.NewTLS(tlsConf)),
-		grpc.WithPerRPCCredentials(&authenticator{apiToken: envVars["API_TOKEN"]}),
-		grpc.WithBlock(),
+	var dialOpts []grpc.DialOption
+	if envVars["API_TLS_CA"] != "" {
+		tlsConf, err := decodeTLSConf(envVars["API_TLS_CA"], envVars["API_TLS_CERT"])
+		if err != nil {
+			return states.ActionOutput{}, fmt.Errorf("failed to decode TLS config: %v", err)
+		}
+
+		dialOpts = []grpc.DialOption{
+			grpc.WithTransportCredentials(credentials.NewTLS(tlsConf)),
+			grpc.WithPerRPCCredentials(&authenticator{apiToken: envVars["API_TOKEN"]}),
+			grpc.WithBlock(),
+		}
+	} else {
+		dialOpts = []grpc.DialOption{
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithBlock(),
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	conn, err := grpc.DialContext(ctx, envVars["API_SERVER_URL"], dialOpts...)
 	cancel()
 	if err != nil {
-		return states.ActionOutput{}, err
+		return states.ActionOutput{}, fmt.Errorf("failed to dial grpc: %v", err)
 	}
 
 	argsAsJson, err := json.Marshal(args)
