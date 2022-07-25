@@ -55,6 +55,7 @@ func Call(pluginName, action string, roles []string, args plugins.Args) (states.
 	} else {
 		dialOpts = []grpc.DialOption{
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithPerRPCCredentials(&authenticator{apiToken: envVars["API_TOKEN"]}),
 			grpc.WithBlock(),
 		}
 	}

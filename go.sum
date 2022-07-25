@@ -1,6 +1,8 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 cloud.google.com/go v0.34.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
+github.com/FlowFabricator/autocert v0.1.5 h1:PWY53ot/isCgd/eEq2HnfGpjfAPRLXKX47JZZ6EY0Tc=
+github.com/FlowFabricator/autocert v0.1.5/go.mod h1:NW1tScrtJU03PoACmSbSB3zImS8CEEolilUJaxdY8u4=
 github.com/FlowFabricator/vector-plugins v0.1.4-0.20220628111426-928f50f5c937 h1:pl/dioCuwpc4pdktkTjVwZF9Kr3F/CPG8Ux9lzXlUoQ=
 github.com/FlowFabricator/vector-plugins v0.1.4-0.20220628111426-928f50f5c937/go.mod h1:k7Dq4v5wBQZTlOBOLpVIY73h8gECe5wioVseO3erSTM=
 github.com/Masterminds/semver v1.5.0 h1:H65muMkzWKEuNDnfl9d70GUjFniHKHRbFPGBuZ3QEww=
