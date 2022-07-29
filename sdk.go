@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/FlowFabricator/vector-plugins/plugins"
 	"github.com/FlowFabricator/vector-plugins/states"
@@ -34,37 +35,15 @@ func (authenticator) RequireTransportSecurity() bool {
 	return true
 }
 
+var (
+	sdkClient sdkpb.SDKClient
+	envVars   map[string]string
+)
+
 func Call(pluginName, action string, roles []string, args plugins.Args) (states.ActionOutput, error) {
-	envVars, err := getEnvVars()
+	err := createGrpcConnection(false)
 	if err != nil {
 		return states.ActionOutput{}, err
-	}
-
-	var dialOpts []grpc.DialOption
-	if envVars["API_TLS_CA"] != "" {
-		tlsConf, err := decodeTLSConf(envVars["API_TLS_CA"], envVars["API_TLS_CERT"])
-		if err != nil {
-			return states.ActionOutput{}, fmt.Errorf("failed to decode TLS config: %v", err)
-		}
-
-		dialOpts = []grpc.DialOption{
-			grpc.WithTransportCredentials(credentials.NewTLS(tlsConf)),
-			grpc.WithPerRPCCredentials(&authenticator{apiToken: envVars["API_TOKEN"]}),
-			grpc.WithBlock(),
-		}
-	} else {
-		dialOpts = []grpc.DialOption{
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithPerRPCCredentials(&authenticator{apiToken: envVars["API_TOKEN"]}),
-			grpc.WithBlock(),
-		}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	conn, err := grpc.DialContext(ctx, envVars["API_SERVER_URL"], dialOpts...)
-	cancel()
-	if err != nil {
-		return states.ActionOutput{}, fmt.Errorf("failed to dial grpc: %v", err)
 	}
 
 	argsAsJson, err := json.Marshal(args)
@@ -72,7 +51,6 @@ func Call(pluginName, action string, roles []string, args plugins.Args) (states.
 		return states.ActionOutput{}, err
 	}
 
-	sdkClient := sdkpb.NewSDKClient(conn)
 	resp, err := sdkClient.Call(context.Background(), &sdkpb.CallRequest{
 		RunRequest: &sdkpb.RunRequest{
 			Plugin:        pluginName,
@@ -95,8 +73,107 @@ func Call(pluginName, action string, roles []string, args plugins.Args) (states.
 	}, nil
 }
 
-func getEnvVars() (map[string]string, error) {
-	varNames := []string{"STATE_NAME", "EXEC_ID", "API_SERVER_URL", "API_TOKEN", "API_TLS_CA", "API_TLS_CERT"}
+func CreateWorkflow(sensor string, sensorArgs plugins.Args, workflow func() error) {
+	err := createGrpcConnection(true)
+	if err != nil {
+		panic(err)
+	}
+	argsAsJson, err := json.Marshal(sensorArgs)
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		resp, err := sdkClient.WaitForTrigger(context.Background(), &sdkpb.TriggerDescription{
+			SensorName:       sensor,
+			SensorArgsAsJson: argsAsJson,
+		})
+		if err != nil {
+			panic(err)
+		} else if resp == nil {
+			panic(errors.New("no response from WaitForTrigger"))
+		} else if resp.Error != "" {
+			panic(errors.New(resp.Error))
+		}
+
+		if resp.Triggered {
+			err = workflow()
+			if err != nil {
+				panic(err)
+			}
+		}
+	}()
+}
+
+func ExecuteState(state string) (states.StateOutput, error) {
+	err := createGrpcConnection(true)
+	if err != nil {
+		return states.StateOutput{}, err
+	}
+
+	out, err := sdkClient.ExecuteState(context.Background(), &sdkpb.StateDescription{
+		Name: state,
+	})
+	if err != nil {
+		return states.StateOutput{}, err
+	}
+
+	return states.StateOutput{
+		ExitCode: states.StateExitCode(out.ExitCode),
+		DataType: states.ValueType(out.ValueType),
+		Data:     out.Data,
+	}, nil
+}
+
+func createGrpcConnection(forWorkflows bool) error {
+	if envVars != nil && sdkClient != nil {
+		return nil
+	}
+
+	vars, err := getEnvVars(forWorkflows)
+	if err != nil {
+		return err
+	}
+
+	var dialOpts []grpc.DialOption
+	if envVars["API_TLS_CA"] != "" {
+		tlsConf, err := decodeTLSConf(envVars["API_TLS_CA"], envVars["API_TLS_CERT"])
+		if err != nil {
+			return fmt.Errorf("failed to decode TLS config: %v", err)
+		}
+
+		dialOpts = []grpc.DialOption{
+			grpc.WithTransportCredentials(credentials.NewTLS(tlsConf)),
+			grpc.WithPerRPCCredentials(&authenticator{apiToken: envVars["API_TOKEN"]}),
+			grpc.WithBlock(),
+		}
+	} else {
+		dialOpts = []grpc.DialOption{
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithPerRPCCredentials(&authenticator{apiToken: envVars["API_TOKEN"]}),
+			grpc.WithBlock(),
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	conn, err := grpc.DialContext(ctx, envVars["API_SERVER_URL"], dialOpts...)
+	cancel()
+	if err != nil {
+		return fmt.Errorf("failed to dial grpc: %v", err)
+	}
+	sdkClient = sdkpb.NewSDKClient(conn)
+	envVars = vars
+	return nil
+}
+
+func getEnvVars(forWorkflows bool) (map[string]string, error) {
+	var nameVar string
+	if forWorkflows {
+		nameVar = "WORKFLOW_NAME"
+	} else {
+		nameVar = "STATE_NAME"
+	}
+	varNames := []string{nameVar, "EXEC_ID", "API_SERVER_URL", "API_TOKEN", "API_TLS_CA", "API_TLS_CERT"}
 	envVars := make(map[string]string)
 	for _, varName := range varNames {
 		value, found := os.LookupEnv(varName)
