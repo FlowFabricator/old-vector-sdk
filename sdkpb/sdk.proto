@@ -25,7 +25,8 @@ message CallResponse {
 
 message TriggerDescription {
   string sensorName = 1;
-  bytes sensorArgsAsJson = 2;
+  string sensorVersion = 2;
+  bytes sensorArgsAsJson = 3;
 }
 
 message TriggerResponse {
