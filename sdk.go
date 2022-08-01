@@ -74,7 +74,7 @@ func Call(pluginName, action string, roles []string, args plugins.Args) (states.
 }
 
 func CreateWorkflow(sensor string, sensorArgs plugins.Args, workflow func() error) {
-	err := createGrpcConnection(true)
+	err := createGrpcConnection(false)
 	if err != nil {
 		panic(err)
 	}
@@ -137,6 +137,7 @@ func createGrpcConnection(forWorkflows bool) error {
 
 	var dialOpts []grpc.DialOption
 	if envVars["API_TLS_CA"] != "" {
+		fmt.Println("Making tls conf")
 		tlsConf, err := decodeTLSConf(envVars["API_TLS_CA"], envVars["API_TLS_CERT"])
 		if err != nil {
 			return fmt.Errorf("failed to decode TLS config: %v", err)
@@ -148,6 +149,7 @@ func createGrpcConnection(forWorkflows bool) error {
 			grpc.WithBlock(),
 		}
 	} else {
+		fmt.Println("Not making tls conf")
 		dialOpts = []grpc.DialOption{
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithPerRPCCredentials(&authenticator{apiToken: envVars["API_TOKEN"]}),
@@ -174,7 +176,7 @@ func getEnvVars(forWorkflows bool) (map[string]string, error) {
 		nameVar = "STATE_NAME"
 	}
 	varNames := []string{nameVar, "EXEC_ID", "API_SERVER_URL", "API_TOKEN", "API_TLS_CA", "API_TLS_CERT"}
-	envVars := make(map[string]string)
+	vars := make(map[string]string)
 	for _, varName := range varNames {
 		value, found := os.LookupEnv(varName)
 		if !found {
@@ -187,9 +189,9 @@ func getEnvVars(forWorkflows bool) (map[string]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode base64 environment variable '%s': %v", varName, err)
 		}
-		envVars[varName] = string(data)
+		vars[varName] = string(data)
 	}
-	return envVars, nil
+	return vars, nil
 }
 
 func decodeTLSConf(encodedCa, encodedClientCert string) (*tls.Config, error) {
