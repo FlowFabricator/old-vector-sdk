@@ -74,7 +74,7 @@ func Call(pluginName, action string, roles []string, args plugins.Args) (states.
 }
 
 func CreateWorkflow(sensor string, sensorArgs plugins.Args, workflow func() error) {
-	err := createGrpcConnection(false)
+	err := createGrpcConnection(true)
 	if err != nil {
 		panic(err)
 	}
@@ -134,10 +134,10 @@ func createGrpcConnection(forWorkflows bool) error {
 	if err != nil {
 		return err
 	}
+	envVars = vars
 
 	var dialOpts []grpc.DialOption
 	if envVars["API_TLS_CA"] != "" {
-		fmt.Println("Making tls conf")
 		tlsConf, err := decodeTLSConf(envVars["API_TLS_CA"], envVars["API_TLS_CERT"])
 		if err != nil {
 			return fmt.Errorf("failed to decode TLS config: %v", err)
@@ -149,7 +149,6 @@ func createGrpcConnection(forWorkflows bool) error {
 			grpc.WithBlock(),
 		}
 	} else {
-		fmt.Println("Not making tls conf")
 		dialOpts = []grpc.DialOption{
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithPerRPCCredentials(&authenticator{apiToken: envVars["API_TOKEN"]}),
@@ -164,7 +163,6 @@ func createGrpcConnection(forWorkflows bool) error {
 		return fmt.Errorf("failed to dial grpc: %v", err)
 	}
 	sdkClient = sdkpb.NewSDKClient(conn)
-	envVars = vars
 	return nil
 }
 
