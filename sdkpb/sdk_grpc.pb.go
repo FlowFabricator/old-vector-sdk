@@ -19,6 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SDKClient interface {
 	Call(ctx context.Context, in *CallRequest, opts ...grpc.CallOption) (*CallResponse, error)
+	Return(ctx context.Context, in *ReturnInfo, opts ...grpc.CallOption) (*Empty, error)
 	WaitForTrigger(ctx context.Context, in *TriggerDescription, opts ...grpc.CallOption) (*TriggerResponse, error)
 	ExecuteState(ctx context.Context, in *StateDescription, opts ...grpc.CallOption) (*StateOutput, error)
 	Run(ctx context.Context, in *RunRequest, opts ...grpc.CallOption) (*RunResponse, error)
@@ -35,6 +36,15 @@ func NewSDKClient(cc grpc.ClientConnInterface) SDKClient {
 func (c *sDKClient) Call(ctx context.Context, in *CallRequest, opts ...grpc.CallOption) (*CallResponse, error) {
 	out := new(CallResponse)
 	err := c.cc.Invoke(ctx, "/sdkpb.SDK/Call", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sDKClient) Return(ctx context.Context, in *ReturnInfo, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/sdkpb.SDK/Return", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -73,6 +83,7 @@ func (c *sDKClient) Run(ctx context.Context, in *RunRequest, opts ...grpc.CallOp
 // for forward compatibility
 type SDKServer interface {
 	Call(context.Context, *CallRequest) (*CallResponse, error)
+	Return(context.Context, *ReturnInfo) (*Empty, error)
 	WaitForTrigger(context.Context, *TriggerDescription) (*TriggerResponse, error)
 	ExecuteState(context.Context, *StateDescription) (*StateOutput, error)
 	Run(context.Context, *RunRequest) (*RunResponse, error)
@@ -85,6 +96,9 @@ type UnimplementedSDKServer struct {
 
 func (UnimplementedSDKServer) Call(context.Context, *CallRequest) (*CallResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Call not implemented")
+}
+func (UnimplementedSDKServer) Return(context.Context, *ReturnInfo) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Return not implemented")
 }
 func (UnimplementedSDKServer) WaitForTrigger(context.Context, *TriggerDescription) (*TriggerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method WaitForTrigger not implemented")
@@ -122,6 +136,24 @@ func _SDK_Call_Handler(srv interface{}, ctx context.Context, dec func(interface{
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SDKServer).Call(ctx, req.(*CallRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SDK_Return_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReturnInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SDKServer).Return(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/sdkpb.SDK/Return",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SDKServer).Return(ctx, req.(*ReturnInfo))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -190,6 +222,10 @@ var SDK_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Call",
 			Handler:    _SDK_Call_Handler,
+		},
+		{
+			MethodName: "Return",
+			Handler:    _SDK_Return_Handler,
 		},
 		{
 			MethodName: "WaitForTrigger",

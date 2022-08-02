@@ -4,6 +4,7 @@ option go_package = "/sdkpb";
 
 service SDK {
   rpc Call(CallRequest) returns (CallResponse);
+  rpc Return(ReturnInfo) returns (Empty);
   rpc WaitForTrigger(TriggerDescription) returns (TriggerResponse);
   rpc ExecuteState(StateDescription) returns (StateOutput);
 
@@ -21,6 +22,12 @@ message CallResponse {
   uint32 exitCode = 1;
   string details = 2;
   bytes data = 3;
+}
+
+message ReturnInfo {
+  StateOutput output = 1;
+  string stateName = 2;
+  string executionId = 3;
 }
 
 message TriggerDescription {
@@ -56,4 +63,6 @@ message RunResponse {
   string details = 2;
   bytes data = 3;
 }
+
+message Empty {}
 

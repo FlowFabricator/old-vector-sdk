@@ -73,6 +73,26 @@ func Call(pluginName, action string, roles []string, args plugins.Args) (states.
 	}, nil
 }
 
+func Return(output states.StateOutput) {
+	err := createGrpcConnection(false)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = sdkClient.Return(context.Background(), &sdkpb.ReturnInfo{
+		Output: &sdkpb.StateOutput{
+			ExitCode:  uint32(output.ExitCode),
+			ValueType: uint32(output.DataType),
+			Data:      output.Data,
+		},
+		StateName:   envVars["STATE_NAME"],
+		ExecutionId: envVars["EXEC_ID"],
+	})
+	if err != nil {
+		panic(err)
+	}
+}
+
 func CreateWorkflow(sensor string, sensorArgs plugins.Args, workflow func() error) {
 	err := createGrpcConnection(true)
 	if err != nil {
