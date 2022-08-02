@@ -83,26 +83,24 @@ func CreateWorkflow(sensor string, sensorArgs plugins.Args, workflow func() erro
 		panic(err)
 	}
 
-	go func() {
-		resp, err := sdkClient.WaitForTrigger(context.Background(), &sdkpb.TriggerDescription{
-			SensorName:       sensor,
-			SensorArgsAsJson: argsAsJson,
-		})
+	resp, err := sdkClient.WaitForTrigger(context.Background(), &sdkpb.TriggerDescription{
+		SensorName:       sensor,
+		SensorArgsAsJson: argsAsJson,
+	})
+	if err != nil {
+		panic(err)
+	} else if resp == nil {
+		panic(errors.New("no response from WaitForTrigger"))
+	} else if resp.Error != "" {
+		panic(errors.New(resp.Error))
+	}
+
+	if resp.Triggered {
+		err = workflow()
 		if err != nil {
 			panic(err)
-		} else if resp == nil {
-			panic(errors.New("no response from WaitForTrigger"))
-		} else if resp.Error != "" {
-			panic(errors.New(resp.Error))
 		}
-
-		if resp.Triggered {
-			err = workflow()
-			if err != nil {
-				panic(err)
-			}
-		}
-	}()
+	}
 }
 
 func ExecuteState(state string) (states.StateOutput, error) {
