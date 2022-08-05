@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -38,7 +39,15 @@ func (authenticator) RequireTransportSecurity() bool {
 var (
 	sdkClient sdkpb.SDKClient
 	envVars   map[string]string
+	waitGroup sync.WaitGroup
 )
+
+type Trigger struct {
+	name         string
+	method       string
+	args         plugins.Args
+	desiredValue []byte
+}
 
 func Call(pluginName, action string, roles []string, args plugins.Args) (states.ActionOutput, error) {
 	err := createGrpcConnection(false)
@@ -93,34 +102,49 @@ func Return(output states.StateOutput) {
 	}
 }
 
-func CreateWorkflow(sensor string, sensorArgs plugins.Args, workflow func() error) {
+func CreateTrigger(sensor, method string, args plugins.Args, desiredValue []byte) Trigger {
+	return Trigger{
+		name:         sensor,
+		method:       method,
+		args:         args,
+		desiredValue: desiredValue,
+	}
+}
+
+func CreateWorkflow(trigger Trigger, workflow func() error) {
 	err := createGrpcConnection(true)
 	if err != nil {
 		panic(err)
 	}
-	argsAsJson, err := json.Marshal(sensorArgs)
+	argsAsJson, err := json.Marshal(trigger.args)
 	if err != nil {
 		panic(err)
 	}
 
-	resp, err := sdkClient.WaitForTrigger(context.Background(), &sdkpb.TriggerDescription{
-		SensorName:       sensor,
-		SensorArgsAsJson: argsAsJson,
-	})
-	if err != nil {
-		panic(err)
-	} else if resp == nil {
-		panic(errors.New("no response from WaitForTrigger"))
-	} else if resp.Error != "" {
-		panic(errors.New(resp.Error))
-	}
-
-	if resp.Triggered {
-		err = workflow()
+	waitGroup.Add(1)
+	go func() {
+		defer waitGroup.Done()
+		resp, err := sdkClient.WaitForTrigger(context.Background(), &sdkpb.TriggerDescription{
+			SensorName:       trigger.name,
+			SensorMethod:     trigger.method,
+			SensorArgsAsJson: argsAsJson,
+			DesiredValue:     trigger.desiredValue,
+		})
 		if err != nil {
 			panic(err)
+		} else if resp == nil {
+			panic(errors.New("no response from WaitForTrigger"))
+		} else if resp.Error != "" {
+			panic(errors.New(resp.Error))
 		}
-	}
+
+		if resp.Triggered {
+			err = workflow()
+			if err != nil {
+				panic(err)
+			}
+		}
+	}()
 }
 
 func ExecuteState(state string) (states.StateOutput, error) {
@@ -141,6 +165,10 @@ func ExecuteState(state string) (states.StateOutput, error) {
 		DataType: states.ValueType(out.ValueType),
 		Data:     out.Data,
 	}, nil
+}
+
+func WaitForWorkflows() {
+	waitGroup.Wait()
 }
 
 func createGrpcConnection(forWorkflows bool) error {

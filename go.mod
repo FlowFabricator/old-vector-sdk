@@ -3,7 +3,7 @@ module github.com/FlowFabricator/vector-sdk
 go 1.18
 
 require (
-	github.com/FlowFabricator/vector-plugins v0.1.4-0.20220628111426-928f50f5c937
+	github.com/FlowFabricator/vector-plugins v0.1.6-0.20220805102322-42d86bebabc4
 	google.golang.org/grpc v1.47.0
 	google.golang.org/protobuf v1.28.0
 )

@@ -33,7 +33,9 @@ message ReturnInfo {
 message TriggerDescription {
   string sensorName = 1;
   string sensorVersion = 2;
-  bytes sensorArgsAsJson = 3;
+  string sensorMethod = 3;
+  bytes sensorArgsAsJson = 4;
+  bytes desiredValue = 5;
 }
 
 message TriggerResponse {
