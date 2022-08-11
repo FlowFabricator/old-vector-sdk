@@ -20,7 +20,7 @@ const _ = grpc.SupportPackageIsVersion7
 type SDKClient interface {
 	Call(ctx context.Context, in *CallRequest, opts ...grpc.CallOption) (*CallResponse, error)
 	Return(ctx context.Context, in *ReturnInfo, opts ...grpc.CallOption) (*Empty, error)
-	WaitForTrigger(ctx context.Context, in *TriggerDescription, opts ...grpc.CallOption) (*TriggerResponse, error)
+	GetSensorData(ctx context.Context, in *SensorDataRequest, opts ...grpc.CallOption) (*SensorDataResponse, error)
 	ExecuteState(ctx context.Context, in *StateDescription, opts ...grpc.CallOption) (*StateOutput, error)
 	Run(ctx context.Context, in *RunRequest, opts ...grpc.CallOption) (*RunResponse, error)
 }
@@ -51,9 +51,9 @@ func (c *sDKClient) Return(ctx context.Context, in *ReturnInfo, opts ...grpc.Cal
 	return out, nil
 }
 
-func (c *sDKClient) WaitForTrigger(ctx context.Context, in *TriggerDescription, opts ...grpc.CallOption) (*TriggerResponse, error) {
-	out := new(TriggerResponse)
-	err := c.cc.Invoke(ctx, "/sdkpb.SDK/WaitForTrigger", in, out, opts...)
+func (c *sDKClient) GetSensorData(ctx context.Context, in *SensorDataRequest, opts ...grpc.CallOption) (*SensorDataResponse, error) {
+	out := new(SensorDataResponse)
+	err := c.cc.Invoke(ctx, "/sdkpb.SDK/GetSensorData", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (c *sDKClient) Run(ctx context.Context, in *RunRequest, opts ...grpc.CallOp
 type SDKServer interface {
 	Call(context.Context, *CallRequest) (*CallResponse, error)
 	Return(context.Context, *ReturnInfo) (*Empty, error)
-	WaitForTrigger(context.Context, *TriggerDescription) (*TriggerResponse, error)
+	GetSensorData(context.Context, *SensorDataRequest) (*SensorDataResponse, error)
 	ExecuteState(context.Context, *StateDescription) (*StateOutput, error)
 	Run(context.Context, *RunRequest) (*RunResponse, error)
 	mustEmbedUnimplementedSDKServer()
@@ -100,8 +100,8 @@ func (UnimplementedSDKServer) Call(context.Context, *CallRequest) (*CallResponse
 func (UnimplementedSDKServer) Return(context.Context, *ReturnInfo) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Return not implemented")
 }
-func (UnimplementedSDKServer) WaitForTrigger(context.Context, *TriggerDescription) (*TriggerResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method WaitForTrigger not implemented")
+func (UnimplementedSDKServer) GetSensorData(context.Context, *SensorDataRequest) (*SensorDataResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSensorData not implemented")
 }
 func (UnimplementedSDKServer) ExecuteState(context.Context, *StateDescription) (*StateOutput, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecuteState not implemented")
@@ -158,20 +158,20 @@ func _SDK_Return_Handler(srv interface{}, ctx context.Context, dec func(interfac
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SDK_WaitForTrigger_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TriggerDescription)
+func _SDK_GetSensorData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SensorDataRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SDKServer).WaitForTrigger(ctx, in)
+		return srv.(SDKServer).GetSensorData(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/sdkpb.SDK/WaitForTrigger",
+		FullMethod: "/sdkpb.SDK/GetSensorData",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SDKServer).WaitForTrigger(ctx, req.(*TriggerDescription))
+		return srv.(SDKServer).GetSensorData(ctx, req.(*SensorDataRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -228,8 +228,8 @@ var SDK_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SDK_Return_Handler,
 		},
 		{
-			MethodName: "WaitForTrigger",
-			Handler:    _SDK_WaitForTrigger_Handler,
+			MethodName: "GetSensorData",
+			Handler:    _SDK_GetSensorData_Handler,
 		},
 		{
 			MethodName: "ExecuteState",

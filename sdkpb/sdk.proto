@@ -5,7 +5,7 @@ option go_package = "/sdkpb";
 service SDK {
   rpc Call(CallRequest) returns (CallResponse);
   rpc Return(ReturnInfo) returns (Empty);
-  rpc WaitForTrigger(TriggerDescription) returns (TriggerResponse);
+  rpc GetSensorData(SensorDataRequest) returns (SensorDataResponse);
   rpc ExecuteState(StateDescription) returns (StateOutput);
 
   rpc Run(RunRequest) returns (RunResponse);
@@ -30,17 +30,15 @@ message ReturnInfo {
   string executionId = 3;
 }
 
-message TriggerDescription {
+message SensorDataRequest {
   string sensorName = 1;
   string sensorVersion = 2;
   string sensorMethod = 3;
   bytes sensorArgsAsJson = 4;
-  bytes desiredValue = 5;
 }
 
-message TriggerResponse {
-  bool triggered = 1;
-  string error = 2;
+message SensorDataResponse {
+  bytes data = 1;
 }
 
 message StateDescription {

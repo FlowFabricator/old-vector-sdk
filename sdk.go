@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/FlowFabricator/vector-plugins/plugins"
 	"github.com/FlowFabricator/vector-plugins/states"
@@ -43,10 +42,7 @@ var (
 )
 
 type Trigger struct {
-	name         string
-	method       string
-	args         plugins.Args
-	desiredValue []byte
+	evalFunc func() (bool, error)
 }
 
 func Call(pluginName, action string, roles []string, args plugins.Args) (states.ActionOutput, error) {
@@ -102,69 +98,73 @@ func Return(output states.StateOutput) {
 	}
 }
 
-func CreateTrigger(sensor, method string, args plugins.Args, desiredValue []byte) Trigger {
+func CreateTrigger(evalFunc func() (bool, error)) Trigger {
 	return Trigger{
-		name:         sensor,
-		method:       method,
-		args:         args,
-		desiredValue: desiredValue,
+		evalFunc: evalFunc,
 	}
 }
 
 func CreateWorkflow(trigger Trigger, workflow func() error) {
-	err := createGrpcConnection(true)
-	if err != nil {
-		panic(err)
-	}
-	argsAsJson, err := json.Marshal(trigger.args)
-	if err != nil {
-		panic(err)
-	}
-
 	waitGroup.Add(1)
 	go func() {
 		defer waitGroup.Done()
-		resp, err := sdkClient.WaitForTrigger(context.Background(), &sdkpb.TriggerDescription{
-			SensorName:       trigger.name,
-			SensorMethod:     trigger.method,
-			SensorArgsAsJson: argsAsJson,
-			DesiredValue:     trigger.desiredValue,
-		})
-		if err != nil {
-			panic(err)
-		} else if resp == nil {
-			panic(errors.New("no response from WaitForTrigger"))
-		} else if resp.Error != "" {
-			panic(errors.New(resp.Error))
-		}
-
-		if resp.Triggered {
-			err = workflow()
+		for {
+			triggered, err := trigger.evalFunc()
 			if err != nil {
 				panic(err)
+			}
+
+			if triggered {
+				err = workflow()
+				if err != nil {
+					panic(err)
+				}
 			}
 		}
 	}()
 }
 
-func ExecuteState(state string) (states.StateOutput, error) {
+func GetData(sensor, method string, args plugins.Args) []byte {
 	err := createGrpcConnection(true)
 	if err != nil {
-		return states.StateOutput{}, err
+		panic(err)
+	}
+
+	argsAsJson, err := json.Marshal(args)
+	if err != nil {
+		panic(err)
+	}
+
+	resp, err := sdkClient.GetSensorData(context.Background(), &sdkpb.SensorDataRequest{
+		SensorName:       sensor,
+		SensorVersion:    "v0.1.0",
+		SensorMethod:     method,
+		SensorArgsAsJson: argsAsJson,
+	})
+	if err != nil {
+		panic(err)
+	}
+	return resp.Data
+}
+
+func ExecuteState(state string) states.StateOutput {
+	err := createGrpcConnection(true)
+	if err != nil {
+		panic(err)
 	}
 
 	out, err := sdkClient.ExecuteState(context.Background(), &sdkpb.StateDescription{
 		Name: state,
 	})
 	if err != nil {
-		return states.StateOutput{}, err
+		panic(err)
 	}
 
 	return states.StateOutput{
 		ExitCode: states.StateExitCode(out.ExitCode),
 		DataType: states.ValueType(out.ValueType),
 		Data:     out.Data,
-	}, nil
+	}
 }
 
 func WaitForWorkflows() {
