@@ -166,6 +166,7 @@ func CreateWorkflow(trigger Trigger, workflow func() WorkflowStatus) {
 			if triggered {
 				status := workflow()
 				setWorkflowStatus(status)
+				return
 			}
 		}
 	}()
