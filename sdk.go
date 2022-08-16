@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/FlowFabricator/vector-plugins/plugins"
 	"github.com/FlowFabricator/vector-plugins/states"
@@ -35,7 +36,36 @@ func (authenticator) RequireTransportSecurity() bool {
 	return true
 }
 
+const (
+	WorkflowComplete WorkflowState = iota
+	WorkflowRunning
+	WorkflowFailed
+	WorkflowPending
+	WorkflowTriggerFailure
+)
+
+var workflowStringMap = [...]string{
+	"WorkflowComplete",
+	"WorkflowRunning",
+	"WorkflowFailed",
+	"WorkflowPending",
+	"WorkflowTriggerFailure",
+}
+
+type WorkflowState uint32
+
+func (w WorkflowState) String() string {
+	return workflowStringMap[w]
+}
+
+type WorkflowStatus struct {
+	State   WorkflowState
+	Details string
+}
+
 var (
+	ErrConnection = errors.New("connection error")
+
 	sdkClient sdkpb.SDKClient
 	envVars   map[string]string
 	waitGroup sync.WaitGroup
@@ -98,41 +128,58 @@ func Return(output states.StateOutput) {
 	}
 }
 
+func setWorkflowStatus(status WorkflowStatus) {
+	err := createGrpcConnection(true)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = sdkClient.SetWorkflowStatus(context.Background(), &sdkpb.WorkflowStatus{
+		WorkflowState: uint32(status.State),
+		Details:       status.Details,
+	})
+	if err != nil {
+		panic(err)
+	}
+}
+
 func CreateTrigger(evalFunc func() (bool, error)) Trigger {
 	return Trigger{
 		evalFunc: evalFunc,
 	}
 }
 
-func CreateWorkflow(trigger Trigger, workflow func() error) {
+func CreateWorkflow(trigger Trigger, workflow func() WorkflowStatus) {
 	waitGroup.Add(1)
 	go func() {
 		defer waitGroup.Done()
 		for {
 			triggered, err := trigger.evalFunc()
 			if err != nil {
-				panic(err)
+				setWorkflowStatus(WorkflowStatus{
+					State:   WorkflowTriggerFailure,
+					Details: err.Error(),
+				})
+				return
 			}
 
 			if triggered {
-				err = workflow()
-				if err != nil {
-					panic(err)
-				}
+				status := workflow()
+				setWorkflowStatus(status)
 			}
 		}
 	}()
 }
 
-func GetData(sensor, method string, args plugins.Args) []byte {
+func GetData(sensor, method string, args plugins.Args) ([]byte, error) {
 	err := createGrpcConnection(true)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	argsAsJson, err := json.Marshal(args)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	resp, err := sdkClient.GetSensorData(context.Background(), &sdkpb.SensorDataRequest{
@@ -142,29 +189,29 @@ func GetData(sensor, method string, args plugins.Args) []byte {
 		SensorArgsAsJson: argsAsJson,
 	})
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return resp.Data
+	return resp.Data, nil
 }
 
-func ExecuteState(state string) states.StateOutput {
+func ExecuteState(state string) (states.StateOutput, error) {
 	err := createGrpcConnection(true)
 	if err != nil {
-		panic(err)
+		return states.StateOutput{}, err
 	}
 
 	out, err := sdkClient.ExecuteState(context.Background(), &sdkpb.StateDescription{
 		Name: state,
 	})
 	if err != nil {
-		panic(err)
+		return states.StateOutput{}, err
 	}
 
 	return states.StateOutput{
 		ExitCode: states.StateExitCode(out.ExitCode),
 		DataType: states.ValueType(out.ValueType),
 		Data:     out.Data,
-	}
+	}, nil
 }
 
 func WaitForWorkflows() {
@@ -206,7 +253,7 @@ func createGrpcConnection(forWorkflows bool) error {
 	conn, err := grpc.DialContext(ctx, envVars["API_SERVER_URL"], dialOpts...)
 	cancel()
 	if err != nil {
-		return fmt.Errorf("failed to dial grpc: %v", err)
+		return fmt.Errorf("%w: failed to dial grpc: %v", ErrConnection, err)
 	}
 	sdkClient = sdkpb.NewSDKClient(conn)
 	return nil
@@ -262,4 +309,8 @@ func decodeTLSConf(encodedCa, encodedClientCert string) (*tls.Config, error) {
 			clientCert,
 		},
 	}, nil
+}
+
+func IsConnection(err error) bool {
+	return errors.Is(err, ErrConnection)
 }

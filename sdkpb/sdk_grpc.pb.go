@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion7
 type SDKClient interface {
 	Call(ctx context.Context, in *CallRequest, opts ...grpc.CallOption) (*CallResponse, error)
 	Return(ctx context.Context, in *ReturnInfo, opts ...grpc.CallOption) (*Empty, error)
+	SetWorkflowStatus(ctx context.Context, in *WorkflowStatus, opts ...grpc.CallOption) (*Empty, error)
 	GetSensorData(ctx context.Context, in *SensorDataRequest, opts ...grpc.CallOption) (*SensorDataResponse, error)
 	ExecuteState(ctx context.Context, in *StateDescription, opts ...grpc.CallOption) (*StateOutput, error)
 	Run(ctx context.Context, in *RunRequest, opts ...grpc.CallOption) (*RunResponse, error)
@@ -45,6 +46,15 @@ func (c *sDKClient) Call(ctx context.Context, in *CallRequest, opts ...grpc.Call
 func (c *sDKClient) Return(ctx context.Context, in *ReturnInfo, opts ...grpc.CallOption) (*Empty, error) {
 	out := new(Empty)
 	err := c.cc.Invoke(ctx, "/sdkpb.SDK/Return", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sDKClient) SetWorkflowStatus(ctx context.Context, in *WorkflowStatus, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/sdkpb.SDK/SetWorkflowStatus", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -84,6 +94,7 @@ func (c *sDKClient) Run(ctx context.Context, in *RunRequest, opts ...grpc.CallOp
 type SDKServer interface {
 	Call(context.Context, *CallRequest) (*CallResponse, error)
 	Return(context.Context, *ReturnInfo) (*Empty, error)
+	SetWorkflowStatus(context.Context, *WorkflowStatus) (*Empty, error)
 	GetSensorData(context.Context, *SensorDataRequest) (*SensorDataResponse, error)
 	ExecuteState(context.Context, *StateDescription) (*StateOutput, error)
 	Run(context.Context, *RunRequest) (*RunResponse, error)
@@ -99,6 +110,9 @@ func (UnimplementedSDKServer) Call(context.Context, *CallRequest) (*CallResponse
 }
 func (UnimplementedSDKServer) Return(context.Context, *ReturnInfo) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Return not implemented")
+}
+func (UnimplementedSDKServer) SetWorkflowStatus(context.Context, *WorkflowStatus) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetWorkflowStatus not implemented")
 }
 func (UnimplementedSDKServer) GetSensorData(context.Context, *SensorDataRequest) (*SensorDataResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSensorData not implemented")
@@ -154,6 +168,24 @@ func _SDK_Return_Handler(srv interface{}, ctx context.Context, dec func(interfac
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SDKServer).Return(ctx, req.(*ReturnInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SDK_SetWorkflowStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WorkflowStatus)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SDKServer).SetWorkflowStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/sdkpb.SDK/SetWorkflowStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SDKServer).SetWorkflowStatus(ctx, req.(*WorkflowStatus))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -226,6 +258,10 @@ var SDK_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Return",
 			Handler:    _SDK_Return_Handler,
+		},
+		{
+			MethodName: "SetWorkflowStatus",
+			Handler:    _SDK_SetWorkflowStatus_Handler,
 		},
 		{
 			MethodName: "GetSensorData",

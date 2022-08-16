@@ -5,6 +5,7 @@ option go_package = "/sdkpb";
 service SDK {
   rpc Call(CallRequest) returns (CallResponse);
   rpc Return(ReturnInfo) returns (Empty);
+  rpc SetWorkflowStatus(WorkflowStatus) returns (Empty);
   rpc GetSensorData(SensorDataRequest) returns (SensorDataResponse);
   rpc ExecuteState(StateDescription) returns (StateOutput);
 
@@ -28,6 +29,11 @@ message ReturnInfo {
   StateOutput output = 1;
   string stateName = 2;
   string executionId = 3;
+}
+
+message WorkflowStatus {
+  uint32 workflowState = 1;
+  string details = 2;
 }
 
 message SensorDataRequest {
