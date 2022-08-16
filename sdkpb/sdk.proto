@@ -32,8 +32,10 @@ message ReturnInfo {
 }
 
 message WorkflowStatus {
-  uint32 workflowState = 1;
-  string details = 2;
+  string name = 1;
+  string executionId = 2;
+  uint32 workflowState = 3;
+  string details = 4;
 }
 
 message SensorDataRequest {
